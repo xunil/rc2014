@@ -53,10 +53,6 @@ def bitswap(x):
        y=y|128
     return y
 
-def hex_escape(s):
-    printable = string.ascii_letters + string.digits + string.punctuation + ' '
-    return ''.join(c if c in printable else r'\x{0:02x}'.format(ord(c)) for c in s)
-
 class Supervisor:
     def __init__(self, bus, addr, verbose):
         self.ixData = MCP23017(bus, addr+1)
@@ -213,8 +209,6 @@ def main():
          help="count", metavar="ADDR", type="int", default=65536)
     parser.add_option("-V", "--value", dest="value",
          help="value", metavar="VAL", type="int", default=0)
-    parser.add_option("-P", "--ascii", dest="ascii",
-         help="print ascii value", action="store_true", default=False)
     parser.add_option("-R", "--rate", dest="rate",
          help="rate for slow clock", metavar="HERTZ", type="int", default=10)
     parser.add_option("-B", "--bank", dest="bank",
@@ -244,12 +238,24 @@ def main():
     elif (cmd=="memdump"):
         try:
             super.take_bus(setBank=options.bank)
-            for i in range(options.addr,options.addr+options.count):
-                val = super.mem_read(i)
-                if options.ascii:
-                    print "%04X %02X %s" % (i, val, hex_escape(chr(val)))
-                else:
-                    print "%04X %02X" % (i, val)
+            for i in range(options.addr, options.addr+options.count, 16):
+                start = i
+                end = min(options.addr+options.count,i+16)
+                # This buffer allows us to avoid reading bytes from the
+                # RC2014 RAM twice.
+                valbuf = list()
+                print "%04X:%04X " % (start, end),
+                for j in range(start, end):
+                    valbuf.append(super.mem_read(j))
+                    print "%02X" % valbuf[-1],
+                if (end - start < 16):
+                    sys.stdout.write('   ' * (16 - (end - start)))
+                    sys.stdout.write(' ')
+                print "  ",
+                for j in range(0, (end - start)):
+                    val = valbuf[j]
+                    sys.stdout.write(chr(val) if val < 127 and val >= 32 else '.')
+                print
         finally:
             if not options.norelease:
                 super.release_bus()
