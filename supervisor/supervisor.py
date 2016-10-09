@@ -1,9 +1,11 @@
+#!/usr/bin/env python
 import smbus
 import string
 import sys
 import time
-from ioexpand import *
 from optparse import OptionParser
+from ioexpand import *
+sys.path.append('../tools')
 from hexfile import HexFile
 
 """
